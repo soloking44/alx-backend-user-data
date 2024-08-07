@@ -56,7 +56,7 @@ Tasks
 
 11. Basic - Overload current_user - and BOOM!
 
-12. Basic - Allow password with ":"
+12. Basic - Allow password with
 
 13. Require auth with stars
 
