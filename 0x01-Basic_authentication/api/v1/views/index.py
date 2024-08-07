@@ -42,4 +42,3 @@ def forbidden() -> str:
       - show forbidden message
     """
     abort(403)
-
