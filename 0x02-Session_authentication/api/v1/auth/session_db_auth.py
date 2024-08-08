@@ -1,52 +1,100 @@
 #!/usr/bin/env python3
 """
-This is session database class
+Module session_db_auth
 """
-from datetime import datetime, timedelta, timedelta
 from api.v1.auth.session_exp_auth import SessionExpAuth
 from models.user_session import UserSession
+from datetime import timedelta, datetime
 
 
 class SessionDBAuth(SessionExpAuth):
-    """ SessionDBAuth class """
-    def create_session(self, user_id=None):
-        """ Session id creator """
+    """
+    A class that represent database for session authentication
+    """
+    def create_session(self, user_id: str = None) -> str:
+        """creates a Session ID for a user_id with expire time
+
+        Parameters
+        ----------
+        user_id: str
+            user id
+
+        Returns
+        -------
+        str
+          A session id for user id
+        """
         session_id = super().create_session(user_id)
-        if user_id is None:
-            return None
-        user_session = UserSession(user_id=user_id, session_id=session_id)
+        if session_id is None:
+            return
+        kwargs = {'user_id': user_id, 'session_id': session_id}
+        user_session = UserSession(**kwargs)
         user_session.save()
         return session_id
 
-    def user_id_for_session_id(self, session_id=None):
-        """ Outputs user_id from session_id """
+    def user_id_for_session_id(self, session_id: str = None) -> str:
+        """Reterive a User ID based on a Session ID from database:
+
+        Parameters
+        ---------
+        session_id: str
+          A session id
+
+        Returns
+        -------
+        str
+            A user id
+        """
         if session_id is None:
             return None
         UserSession.load_from_file()
-        is_valid_user = UserSession.search({'session_id': session_id})
-        if not is_valid_user:
+        user_session = UserSession.search({"session_id": session_id})
+        if not user_session:
             return None
-        is_valid_user = is_valid_user[0]
-        start_time = is_valid_user.created_at
-        time_delta = timedelta(seconds=self.session_duration)
-        if (start_time + time_delta) < datetime.now():
+
+        user_session = user_session[0]
+
+        expired_time = user_session.created_at + \
+            timedelta(seconds=self.session_duration)
+
+        if expired_time < datetime.utcnow():
             return None
-        return is_valid_user.user_id
+
+        return user_session.user_id
 
     def destroy_session(self, request=None):
-        """ Remove usersession in session id on request cookie """
-        cookie_data = self.session_cookie(request)
-        if cookie_data is None:
+        """Deletes the user session / logout
+
+        Parameters
+        ----------
+        request: object
+            request object found when http request is sent
+
+        Returns
+        -------
+        bool
+            True if the session id is deleted associate with
+            the user otherwise False
+        """
+        if request is None:
+            return
+        session_id = self.session_cookie(request)
+        if session_id is None:
             return False
-        if not self.user_id_for_session_id(cookie_data):
+        if self.user_id_for_session_id(session_id) is None:
             return False
-        user_session = UserSession.search({'session_id': cookie_data})
+        user_session = UserSession.search({
+            'session_id': session_id
+        })
+
         if not user_session:
             return False
+
         user_session = user_session[0]
+
         try:
             user_session.remove()
-            UserSession.save_to_file()
         except Exception:
             return False
+
         return True
