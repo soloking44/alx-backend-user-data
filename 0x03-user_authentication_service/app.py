@@ -3,7 +3,8 @@
 """
 
 from db import DB
-from flask import Flask, jsonify, request, abort, redirect, make_response
+from flask import Flask, jsonify, request, abort, redirect
+from flask.helpers import make_response
 from auth import Auth
 from user import User
 
@@ -59,13 +60,11 @@ def logout():
     status
     """
     user_cookie = request.cookies.get("session_id", None)
-    if user_cookie is None:
-        abort(403)
     user = AUTH.get_user_from_session_id(user_cookie)
-    if user is None:
+    if user_cookie is None or user is None:
         abort(403)
     AUTH.destroy_session(user.id)
-    return redirect('/', code=302)
+    return redirect('/')
 
 
 @app.route('/profile', methods=['GET'], strict_slashes=False)
@@ -75,12 +74,10 @@ def profile() -> str:
     Use session_id to get user
     """
     user_cookie = request.cookies.get("session_id", None)
-    if user_cookie is None:
-        abort(403)
     user = AUTH.get_user_from_session_id(user_cookie)
-    if user is None:
+    if user_cookie is None or user is None:
         abort(403)
-    return jsonify({"email": user.email}), 200
+    return jsonify({"email": user}), 200
 
 
 @app.route('/reset_password', methods=['POST'], strict_slashes=False)
@@ -91,7 +88,7 @@ def get_reset_password_token_route() -> str:
     """
     user_request = request.form
     user_email = user_request.get('email', '')
-    is_registered = AUTH.get_user_by_email(user_email)
+    is_registered = AUTH.create_session(user_email)
     if not is_registered:
         abort(403)
     token = AUTH.get_reset_password_token(user_email)
